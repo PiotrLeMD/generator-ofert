@@ -61,6 +61,31 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# --- BAZA WIEDZY: HANDLOWCY (NOWOŚĆ - WYPEŁNIJ SWOIMI DANYMI) ---
+DANE_HANDLOWCOW = {
+    "paulina.nytko@longlife.pl": {
+        "imie": "Paulina Nytko", 
+        "stanowisko": "Health & Wellbeing Business Partner"
+    },
+    "katarzyna.czarnowska@longlife.pl": {
+        "imie": "Katarzyna Czarnowska", 
+        "stanowisko": "Członek Zarządu, Dyrektor Operacyjny"
+    },
+    "piotr.leszczynski@longlife.pl": {
+        "imie": "Piotr Leszczyński",
+        "stanowisko": "Członek Zarządu, Dyrektor Medyczny"
+    },
+    "filip.clapka@longlife.pl": {
+        "imie": "Filip Cłapka",
+        "stanowisko": "--"
+    },
+    "ja@longlife.pl": {
+        "imie": "Jarosław Augustyniak",
+        "stanowisko": "--"
+    # Dodaj kolejne osoby według tego samego schematu:
+    # "kasia@twojafirma.pl": {"imie": "Katarzyna Nowak", "stanowisko": "Key Account Manager"},
+}
+
 # --- OPISY MARKETINGOWE ---
 OPISY_MARKETINGOWE = {
     "Badania Laboratoryjne": "### Mobilny Punkt Pobrań\nWygodny dostęp do diagnostyki laboratoryjnej bez konieczności dojazdów pracowników do placówek.\n* **Organizacja:** Sprawny proces rejestracji i pobrania krwi w siedzibie firmy.\n* **Wyniki:** Udostępniane online bezpośrednio pracownikowi (pełna poufność).\n* **Edukacja:** Opcjonalnie webinar podsumowujący – omówienie znaczenia badań i najczęstszych odchyleń w populacji.\n* **Raportowanie:** Możliwość przygotowania anonimowego raportu zbiorczego dla pracodawcy (analiza trendów zdrowotnych).",
@@ -193,7 +218,11 @@ def render_usluga_standard(nazwa_uslugi, stawka_local, stawka_remote, koszt_mat,
 
 # --- MENU GŁÓWNE ---
 st.sidebar.title("Nawigacja")
-st.sidebar.caption(f"Zalogowano jako: **{st.session_state.get('logged_in_user', '')}**")
+
+current_user = st.session_state.get('logged_in_user', '')
+user_data = DANE_HANDLOWCOW.get(current_user, {"imie": "Nieznany Handlowiec", "stanowisko": "Manager ds. Klientów"})
+
+st.sidebar.caption(f"Zalogowano jako: **{user_data['imie']}** ({current_user})")
 st.sidebar.markdown("---")
 
 n_koszyk = len(st.session_state['koszyk'])
@@ -215,9 +244,10 @@ if "ZESTAWIENIE OFERTY" in wybor:
             kontakt_email = st.text_input("Email (Klient):", placeholder="jan@firma.pl")
         with col_h:
             st.subheader("Handlowiec (Ty)")
-            handlowiec = st.text_input("Imię i Nazwisko:", placeholder="Twoje Imię")
-            stanowisko = st.text_input("Stanowisko:", value="Manager ds. Klientów")
-            handlowiec_email = st.text_input("Email (Ty):", value=st.session_state.get('logged_in_user', ''))
+            # POLA WYPEŁNIAJĄ SIĘ AUTOMATYCZNIE NA BAZIE SŁOWNIKA
+            handlowiec = st.text_input("Imię i Nazwisko:", value=user_data['imie'])
+            stanowisko = st.text_input("Stanowisko:", value=user_data['stanowisko'])
+            handlowiec_email = st.text_input("Email (Ty):", value=current_user)
 
     st.divider()
     if st.session_state['koszyk']:
@@ -250,7 +280,6 @@ if "ZESTAWIENIE OFERTY" in wybor:
         for item in st.session_state['koszyk']: md += f"| {item['Usługa']} | {item['Cena']:.2f} PLN |\n"
         md += f"| **RAZEM** | **{suma:.2f} PLN** |\n\n---\n"
         
-        # POPRAWIONY I ZAMKNIĘTY KOD:
         md += f"# Zapraszamy do współpracy\n### Skontaktuj się z nami\n\n**{handlowiec if handlowiec else 'Twój Opiekun'}** \n{stanowisko}  \n📧 {handlowiec_email if handlowiec_email else 'oferta@twojafirma.pl'}\n\n**Nota prawna:** Podane ceny są cenami końcowymi do zapłaty (Brutto). Usługi medyczne zwolnione z VAT na podst. art. 43 ust. 1 ustawy o VAT.\n"
         
         with st.expander("📄 KLIKNIJ TUTAJ, ABY POBRAĆ WSAD DO GAMMY (KOD MARKDOWN)", expanded=False):
