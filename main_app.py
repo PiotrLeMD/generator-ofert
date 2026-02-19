@@ -4,8 +4,54 @@ from supabase import create_client, Client
 import math
 from datetime import date
 
-# --- 1. KONFIGURACJA I PAMIĘĆ ---
+# --- 1. KONFIGURACJA ---
 st.set_page_config(page_title="Generator Ofert Medycznych", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
+
+# --- 2. SYSTEM LOGOWANIA (NOWOŚĆ) ---
+def check_password():
+    """Zwraca True, jeśli użytkownik wpisał poprawne hasło."""
+    
+    def password_entered():
+        # Sprawdza czy login istnieje w sekcji [passwords] w Secrets i czy hasło się zgadza
+        if (
+            st.session_state["username"] in st.secrets["passwords"]
+            and st.session_state["password"] == st.secrets["passwords"][st.session_state["username"]]
+        ):
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # Kasujemy hasło z pamięci dla bezpieczeństwa
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        # Ekran startowy (niezalogowany)
+        st.markdown("<h1 style='text-align: center;'>Zaloguj się do systemu</h1>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.text_input("E-mail (Login)", key="username")
+            st.text_input("Hasło", type="password", key="password")
+            st.button("Zaloguj", on_click=password_entered, use_container_width=True)
+        return False
+    elif not st.session_state["password_correct"]:
+        # Błędne hasło
+        st.markdown("<h1 style='text-align: center;'>Zaloguj się do systemu</h1>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.text_input("E-mail (Login)", key="username")
+            st.text_input("Hasło", type="password", key="password")
+            st.button("Zaloguj", on_click=password_entered, use_container_width=True)
+            st.error("⛔ Błędny login lub hasło. Spróbuj ponownie.")
+        return False
+    else:
+        # Zalogowano poprawnie!
+        return True
+
+# --- URUCHOMIENIE STRAŻNIKA ---
+if not check_password():
+    st.stop() # Jeśli False, zatrzymujemy kod i nie pokazujemy aplikacji!
+
+# =========================================================================
+# === PONIŻEJ ZACZYNA SIĘ WŁAŚCIWA APLIKACJA (UKRYTA PRZED NIEZALOGOWANYMI) ===
+# =========================================================================
 
 if 'koszyk' not in st.session_state: st.session_state['koszyk'] = []
 
@@ -18,61 +64,18 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. PROFESJONALNE OPISY USŁUG ---
+# --- OPISY MARKETINGOWE ---
 OPISY_MARKETINGOWE = {
-    "Badania Laboratoryjne": """
-### Mobilny Punkt Pobrań
-Wygodny dostęp do diagnostyki laboratoryjnej bez konieczności dojazdów pracowników do placówek.
-* **Organizacja:** Sprawny proces rejestracji i pobrania krwi w siedzibie firmy.
-* **Wyniki:** Udostępniane online bezpośrednio pracownikowi (pełna poufność).
-* **Edukacja:** Opcjonalnie webinar podsumowujący – omówienie znaczenia badań i najczęstszych odchyleń w populacji.
-* **Raportowanie:** Możliwość przygotowania anonimowego raportu zbiorczego dla pracodawcy (analiza trendów zdrowotnych).
-""",
-    "Cukrzyca BASIC": """
-### Profilaktyka Cukrzycy (Pakiet BASIC)
-Szybki screening w kierunku zaburzeń glikemii i ryzyka cukrzycy typu 2.
-* **Badanie:** Oznaczenie poziomu HbA1c (hemoglobiny glikowanej) z kropli krwi z palca – wynik dostępny natychmiast na miejscu.
-* **Ocena ryzyka:** Wywiad medyczny, pomiary antropometryczne oraz analiza ryzyka wystąpienia cukrzycy w ciągu najbliższych 10 lat (wg walidowanego narzędzia).
-* **Zalecenia:** Pracownik otrzymuje indywidualny kod QR. Po jego zeskanowaniu uzyskuje spersonalizowane zalecenia i plan dalszego postępowania.
-""",
-    "Cukrzyca PREMIUM": """
-### Profilaktyka Cukrzycy (Pakiet PREMIUM)
-Rozszerzona diagnostyka metaboliczna pozwalająca wykryć ukryte zagrożenia.
-* **Zakres BASIC + Analiza Składu Ciała:** Profesjonalne badanie na urządzeniu klasy medycznej (InBody).
-* **Co badamy?** Identyfikacja ryzyka metabolicznego związanego z niewidocznym gołym okiem problemem (np. nagromadzenie aktywnego metabolicznie tłuszczu trzewnego lub obniżona masa mięśniowa).
-* **Efekt:** Pełny obraz kondycji metabolicznej pracownika i konkretne wskazówki dietetyczne.
-""",
-    "Profilaktyka Chorób Serca": """
-### Ryzyko Sercowo-Naczyniowe
-Kompleksowa ocena układu krążenia w celu zapobiegania zawałom i udarom.
-* **Badania:** Pełny lipidogram z kropli krwi z palca (wynik na miejscu) oraz pomiar ciśnienia tętniczego.
-* **Ocena ryzyka:** Wywiad zdrowotny i analiza ryzyka wystąpienia incydentu sercowo-naczyniowego (zawał, udar) w perspektywie 10 lat.
-* **Zalecenia:** Raport oraz kod QR z indywidualnymi wskazówkami dotyczącymi diety i stylu życia, dostosowanymi do wyników pracownika.
-""",
-    "Spirometria": """
-### Spirometria – Zdrowe Płuca
-Badanie przesiewowe układu oddechowego, kluczowe w profilaktyce po-covidowej i środowiskowej.
-* **Cel:** Wczesna identyfikacja schorzeń takich jak astma oskrzelowa lub POChP.
-* **Przebieg:** Badanie prowadzone przez uprawnionego medyka z zachowaniem najwyższych standardów higienicznych (ustniki jednorazowe/filtry).
-* **Wynik:** Natychmiastowa informacja o wydolności płuc i zalecenia dotyczące dalszego postępowania w razie nieprawidłowości.
-""",
-    "USG w Miejscu Pracy": """
-### Mobilny Gabinet USG
-Profilaktyczne badania ultrasonograficzne wykonywane na miejscu u pracodawcy przez doświadczonych lekarzy.
-* **Zakres (do wyboru):** USG tarczycy, jamy brzusznej, jąder lub piersi.
-* **Przebieg:** Badanie trwa średnio ok. 15 minut na osobę. USG pozwala wcześnie wykryć zmiany niewyczuwalne w badaniu palpacyjnym.
-* **Wynik:** Pracownik otrzymuje opis pisemny od razu po badaniu wraz z ewentualnym skierowaniem na dalszą diagnostykę.
-""",
-    "Dermatoskopia": """
-### Dermatoskopia – Profilaktyka Czerniaka
-Konsultacja dermatologiczna z oceną znamion i zmian skórnych.
-* **Cel:** Wczesna identyfikacja zmian wymagających obserwacji lub pilnej diagnostyki (profilaktyka nowotworów skóry).
-* **Specjalista:** Badanie prowadzone przez lekarza dermatologa przy użyciu dermatoskopu.
-* **Zalecenia:** Pracownik otrzymuje konkretną informację: kontrola, dalsza diagnostyka lub zalecenia dotyczące ochrony przeciwsłonecznej.
-"""
+    "Badania Laboratoryjne": "### Mobilny Punkt Pobrań\nWygodny dostęp do diagnostyki laboratoryjnej bez konieczności dojazdów pracowników do placówek.\n* **Organizacja:** Sprawny proces rejestracji i pobrania krwi w siedzibie firmy.\n* **Wyniki:** Udostępniane online bezpośrednio pracownikowi (pełna poufność).\n* **Edukacja:** Opcjonalnie webinar podsumowujący – omówienie znaczenia badań i najczęstszych odchyleń w populacji.\n* **Raportowanie:** Możliwość przygotowania anonimowego raportu zbiorczego dla pracodawcy (analiza trendów zdrowotnych).",
+    "Cukrzyca BASIC": "### Profilaktyka Cukrzycy (Pakiet BASIC)\nSzybki screening w kierunku zaburzeń glikemii i ryzyka cukrzycy typu 2.\n* **Badanie:** Oznaczenie poziomu HbA1c (hemoglobiny glikowanej) z kropli krwi z palca – wynik dostępny natychmiast na miejscu.\n* **Ocena ryzyka:** Wywiad medyczny, pomiary antropometryczne oraz analiza ryzyka wystąpienia cukrzycy w ciągu najbliższych 10 lat (wg walidowanego narzędzia).\n* **Zalecenia:** Pracownik otrzymuje indywidualny kod QR. Po jego zeskanowaniu uzyskuje spersonalizowane zalecenia i plan dalszego postępowania.",
+    "Cukrzyca PREMIUM": "### Profilaktyka Cukrzycy (Pakiet PREMIUM)\nRozszerzona diagnostyka metaboliczna pozwalająca wykryć ukryte zagrożenia.\n* **Zakres BASIC + Analiza Składu Ciała:** Profesjonalne badanie na urządzeniu klasy medycznej (InBody).\n* **Co badamy?** Identyfikacja ryzyka metabolicznego związanego z niewidocznym gołym okiem problemem (np. nagromadzenie aktywnego metabolicznie tłuszczu trzewnego lub obniżona masa mięśniowa).\n* **Efekt:** Pełny obraz kondycji metabolicznej pracownika i konkretne wskazówki dietetyczne.",
+    "Profilaktyka Chorób Serca": "### Ryzyko Sercowo-Naczyniowe\nKompleksowa ocena układu krążenia w celu zapobiegania zawałom i udarom.\n* **Badania:** Pełny lipidogram z kropli krwi z palca (wynik na miejscu) oraz pomiar ciśnienia tętniczego.\n* **Ocena ryzyka:** Wywiad zdrowotny i analiza ryzyka wystąpienia incydentu sercowo-naczyniowego (zawał, udar) w perspektywie 10 lat.\n* **Zalecenia:** Raport oraz kod QR z indywidualnymi wskazówkami dotyczącymi diety i stylu życia, dostosowanymi do wyników pracownika.",
+    "Spirometria": "### Spirometria – Zdrowe Płuca\nBadanie przesiewowe układu oddechowego, kluczowe w profilaktyce po-covidowej i środowiskowej.\n* **Cel:** Wczesna identyfikacja schorzeń takich jak astma oskrzelowa lub POChP.\n* **Przebieg:** Badanie prowadzone przez uprawnionego medyka z zachowaniem najwyższych standardów higienicznych (ustniki jednorazowe/filtry).\n* **Wynik:** Natychmiastowa informacja o wydolności płuc i zalecenia dotyczące dalszego postępowania w razie nieprawidłowości.",
+    "USG w Miejscu Pracy": "### Mobilny Gabinet USG\nProfilaktyczne badania ultrasonograficzne wykonywane na miejscu u pracodawcy przez doświadczonych lekarzy.\n* **Zakres (do wyboru):** USG tarczycy, jamy brzusznej, jąder lub piersi.\n* **Przebieg:** Badanie trwa średnio ok. 15 minut na osobę. USG pozwala wcześnie wykryć zmiany niewyczuwalne w badaniu palpacyjnym.\n* **Wynik:** Pracownik otrzymuje opis pisemny od razu po badaniu wraz z ewentualnym skierowaniem na dalszą diagnostykę.",
+    "Dermatoskopia": "### Dermatoskopia – Profilaktyka Czerniaka\nKonsultacja dermatologiczna z oceną znamion i zmian skórnych.\n* **Cel:** Wczesna identyfikacja zmian wymagających obserwacji lub pilnej diagnostyki (profilaktyka nowotworów skóry).\n* **Specjalista:** Badanie prowadzone przez lekarza dermatologa przy użyciu dermatoskopu.\n* **Zalecenia:** Pracownik otrzymuje konkretną informację: kontrola, dalsza diagnostyka lub zalecenia dotyczące ochrony przeciwsłonecznej."
 }
 
-# --- 3. SUPABASE ---
+# --- BAZA DANYCH ---
 @st.cache_data(ttl=600)
 def get_supabase_data():
     try:
@@ -89,18 +92,14 @@ def get_supabase_data():
         st.error(f"⚠️ Błąd bazy: {e}")
         return pd.DataFrame()
 
-# --- 4. STAŁE ---
 KOSZT_NOCLEGU = 400.0
 STAWKA_KM = 2.0
 LIMIT_LOKALIZACJI = 20
 
-# --- 5. FUNKCJE ---
+# --- FUNKCJE LOGICZNE ---
 def dodaj_do_koszyka(nazwa, cena, logistyka_opis, marza_procent):
     st.session_state['koszyk'].append({
-        "Usługa": nazwa, 
-        "Cena": cena, 
-        "Marża %": f"{marza_procent:.1f}%", 
-        "Logistyka": logistyka_opis
+        "Usługa": nazwa, "Cena": cena, "Marża %": f"{marza_procent:.1f}%", "Logistyka": logistyka_opis
     })
     st.toast(f"✅ Dodano {nazwa} do zestawienia!")
 
@@ -119,18 +118,14 @@ def straznik_rentownosci(koszt_operacyjny, przychod_sztywny_lab, cena_koncowa):
     elif 21 <= marza < 50: return "warning", f"⚠️ Niska rentowność ({marza:.1f}%)", marza
     else: return "success", f"✅ Rentowność OK ({marza:.1f}%)", marza
 
-def generuj_logistyke_opis(pacjenci, opis_lok):
-    return f"Liczba uczestników: {pacjenci}\nSzczegóły:\n{opis_lok}"
+def generuj_logistyke_opis(pacjenci, opis_lok): return f"Liczba uczestników: {pacjenci}\nSzczegóły:\n{opis_lok}"
 
 def symulacja_czasu(pacjenci, wydajnosc, max_z):
     if pacjenci == 0: return ""
-    opcje = []
-    for n in range(1, max_z + 1):
-        dni = math.ceil(pacjenci / (wydajnosc * n))
-        opcje.append(f"<b>{n} Zesp.</b> ➡ {dni} dni")
+    opcje = [f"<b>{n} Zesp.</b> ➡ {math.ceil(pacjenci / (wydajnosc * n))} dni" for n in range(1, max_z + 1)]
     return " | ".join(opcje)
 
-# --- 6. INTERFEJS USŁUG ---
+# --- INTERFEJS USŁUG ---
 def render_usluga_standard(nazwa_uslugi, stawka_local, stawka_remote, koszt_mat, wydajnosc, 
                           dodatkowy_personel_local=0, dodatkowy_personel_remote=0,
                           koszt_mat_dzien=0, max_zespolow=3):
@@ -161,7 +156,6 @@ def render_usluga_standard(nazwa_uslugi, stawka_local, stawka_remote, koszt_mat,
                 is_remote = km > 150
                 symulacja = symulacja_czasu(pacjenci, wydajnosc, max_zespolow)
                 
-                # Koszty
                 stawka = stawka_remote if is_remote else stawka_local
                 dodatek = dodatkowy_personel_remote if is_remote else dodatkowy_personel_local
                 k_pers = dni * (stawka + dodatek) * n_zesp
@@ -200,14 +194,18 @@ def render_usluga_standard(nazwa_uslugi, stawka_local, stawka_remote, koszt_mat,
                 dodaj_do_koszyka(nazwa_uslugi, cena_klienta, logistyka, marza)
             else: st.error("Brak rentowności!")
 
-# --- 7. NAV ---
+# --- MENU GŁÓWNE ---
 st.sidebar.title("Nawigacja")
+# Wyświetlamy informację o tym, kto jest zalogowany
+st.sidebar.caption(f"Zalogowano jako: **{st.session_state['username']}**")
+st.sidebar.markdown("---")
+
 n_koszyk = len(st.session_state['koszyk'])
 wybor = st.sidebar.radio("Menu:", ["ZESTAWIENIE OFERTY " + (f"📋 ({n_koszyk})" if n_koszyk>0 else "📋"), "---", "Badania Laboratoryjne (Pakiet)", "Cukrzyca BASIC", "Cukrzyca PREMIUM", "Kardiologia", "Spirometria", "USG w Firmie", "Dermatoskopia"])
 st.sidebar.markdown("---")
-if st.sidebar.button("🗑️ Wyczyść"): st.session_state['koszyk'] = []; st.rerun()
+if st.sidebar.button("🗑️ Wyczyść koszyk"): st.session_state['koszyk'] = []; st.rerun()
 
-# --- 8. ZESTAWIENIE (GAMMA MODE) ---
+# --- ZESTAWIENIE ---
 if "ZESTAWIENIE OFERTY" in wybor:
     st.header("📋 Zestawienie i Export do Gammy")
     
@@ -218,12 +216,13 @@ if "ZESTAWIENIE OFERTY" in wybor:
             klient = st.text_input("Firma:", placeholder="Firma XYZ Sp. z o.o.")
             adres = st.text_input("Adres:", placeholder="ul. Prosta 1, Warszawa")
             kontakt = st.text_input("Osoba kontaktowa:", placeholder="Jan Kowalski, HR")
-            kontakt_email = st.text_input("Email (Klient):", placeholder="jan@firma.pl") # NOWOŚĆ
+            kontakt_email = st.text_input("Email (Klient):", placeholder="jan@firma.pl")
         with col_h:
             st.subheader("Handlowiec (Ty)")
             handlowiec = st.text_input("Imię i Nazwisko:", placeholder="Twoje Imię")
             stanowisko = st.text_input("Stanowisko:", value="Manager ds. Klientów")
-            handlowiec_email = st.text_input("Email (Ty):", placeholder="ty@twojafirma.pl") # NOWOŚĆ
+            # Podpowiadamy login jako e-mail z automatu
+            handlowiec_email = st.text_input("Email (Ty):", value=st.session_state['username'])
 
     st.divider()
     if st.session_state['koszyk']:
@@ -235,74 +234,34 @@ if "ZESTAWIENIE OFERTY" in wybor:
         
         st.divider()
         st.subheader("🚀 Generowanie Prezentacji")
-        st.info("Poniżej znajduje się gotowy kod dla AI Gamma. Zawiera on Twoje wyliczenia ORAZ profesjonalne opisy marketingowe usług.")
+        st.info("Poniżej znajduje się gotowy kod dla AI Gamma.")
 
-        # --- GENEROWANIE MARKDOWN DLA GAMMY ---
         today = date.today().strftime("%d.%m.%Y")
-        
-        # 1. Slajd Tytułowy
-        md = f"# Oferta Współpracy Medycznej\n"
-        md += f"### Dla: {klient if klient else 'Naszego Klienta'}\n"
+        md = f"# Oferta Współpracy Medycznej\n### Dla: {klient if klient else 'Naszego Klienta'}\n"
         if adres: md += f"**Adres:** {adres}\n"
         if kontakt: md += f"**Osoba kontaktowa:** {kontakt}\n"
-        if kontakt_email: md += f"**Email:** {kontakt_email}\n" # DODANO DO MARKDOWN
-        md += f"**Data:** {today}\n\n"
-        md += "---\n"
+        if kontakt_email: md += f"**Email:** {kontakt_email}\n"
+        md += f"**Data:** {today}\n\n---\n"
         
-        # 2. Slajd O Nas / Strefa Zdrowia
-        md += f"# Strefa Zdrowia w Twojej Firmie\n"
-        md += f"### Profilaktyka bez wychodzenia z biura\n\n"
-        md += f"Organizujemy profesjonalne badania i konsultacje medyczne bezpośrednio w siedzibie Twojej firmy. Nasz mobilny zespół medyczny tworzy szybkie i doskonale zorganizowane stanowiska diagnostyczne.\n\n"
-        md += f"### Proces Realizacji\n"
-        md += f"1. **Analiza:** Dobieramy odpowiednie moduły (np. Dzień Zdrowia, Roczny Program).\n"
-        md += f"2. **Realizacja:** Przyjeżdżamy z pełnym sprzętem. Potrzebujemy tylko sali.\n"
-        md += f"3. **Raport:** Indywidualne wyniki dla pracowników i anonimowy raport zbiorczy dla firmy.\n\n"
-        md += f"> **Bezpieczeństwo:** Działamy zgodnie z RODO i tajemnicą medyczną.\n\n"
-        md += "---\n"
+        md += f"# Strefa Zdrowia w Twojej Firmie\n### Profilaktyka bez wychodzenia z biura\n\nOrganizujemy profesjonalne badania i konsultacje medyczne bezpośrednio w siedzibie Twojej firmy. Nasz mobilny zespół medyczny tworzy szybkie i doskonale zorganizowane stanowiska diagnostyczne.\n\n### Proces Realizacji\n1. **Analiza:** Dobieramy odpowiednie moduły (np. Dzień Zdrowia, Roczny Program).\n2. **Realizacja:** Przyjeżdżamy z pełnym sprzętem. Potrzebujemy tylko sali.\n3. **Raport:** Indywidualne wyniki dla pracowników i anonimowy raport zbiorczy dla firmy.\n\n> **Bezpieczeństwo:** Działamy zgodnie z RODO i tajemnicą medyczną.\n\n---\n"
         
-        # 3. Slajdy Produktowe
         for i, item in enumerate(st.session_state['koszyk']):
             nazwa = item['Usługa']
             opis_marketingowy = OPISY_MARKETINGOWE.get(nazwa, "### Szczegóły usługi\nIndywidualnie dopasowany zakres badań.")
-            logistyka = item['Logistyka']
+            clean_logistyka = item['Logistyka'].replace("\n", "  \n")
+            md += f"# Opcja {i+1}: {nazwa}\n{opis_marketingowy}\n\n### Parametry Twojej Realizacji\n{clean_logistyka}\n\n> **Inwestycja: {item['Cena']:.2f} PLN (zw. z VAT)**\n\n---\n"
             
-            md += f"# Opcja {i+1}: {nazwa}\n"
-            md += f"{opis_marketingowy}\n\n"
-            
-            md += f"### Parametry Twojej Realizacji\n"
-            clean_logistyka = logistyka.replace("\n", "  \n")
-            md += f"{clean_logistyka}\n\n"
-            
-            md += f"> **Inwestycja: {item['Cena']:.2f} PLN (zw. z VAT)**\n\n"
-            md += "---\n"
-            
-        # 4. Slajd Podsumowanie
-        md += f"# Podsumowanie Kosztów\n\n"
-        md += f"| Usługa | Cena (Brutto) |\n"
-        md += f"|---|---|\n"
-        for item in st.session_state['koszyk']:
-            md += f"| {item['Usługa']} | {item['Cena']:.2f} PLN |\n"
-        md += f"| **RAZEM** | **{suma:.2f} PLN** |\n\n"
-        md += "---\n"
+        md += f"# Podsumowanie Kosztów\n\n| Usługa | Cena (Brutto) |\n|---|---|\n"
+        for item in st.session_state['koszyk']: md += f"| {item['Usługa']} | {item['Cena']:.2f} PLN |\n"
+        md += f"| **RAZEM** | **{suma:.2f} PLN** |\n\n---\n"
         
-        # 5. Slajd Kontakt + STOPKA PRAWNA
-        md += f"# Zapraszamy do współpracy\n"
-        md += f"### Skontaktuj się z nami\n\n"
-        md += f"**{handlowiec if handlowiec else 'Twój Opiekun'}** \n"
-        md += f"{stanowisko}  \n"
-        
-        # EMAIL HANDLOWCA LUB DOMYŚLNY
-        mail_to_show = handlowiec_email if handlowiec_email else "oferta@twojafirma.pl"
-        md += f"📧 {mail_to_show}\n\n"
-        
-        md += f"**Nota prawna:** Podane ceny są cenami końcowymi do zapłaty (Brutto). Usługi medyczne zwolnione z VAT na podst. art. 43 ust. 1 ustawy o VAT.\n"
+        md += f"# Zapraszamy do współpracy\n### Skontaktuj się z nami\n\n**{handlowiec if handlowiec else 'Twój Opiekun'}** \n{stanowisko}  \n📧 {handlowiec_email if handlowiec_email else 'oferta@twojafirma.pl'}\n\n**Nota prawna:** Podane ceny są cenami końcowymi do zapłaty (Brutto). Usługi medyczne zwolnione z VAT na podst. art. 43 ust. 1 ustawy o VAT.\n"
         
         with st.expander("📄 KLIKNIJ TUTAJ, ABY POBRAĆ WSAD DO GAMMY (KOD MARKDOWN)", expanded=False):
             st.markdown("Instrukcja: Najedź myszką na poniższy kod i kliknij **ikonę kopiowania** (📋) w prawym górnym rogu.")
             st.code(md, language='markdown')
 
-
-# --- 9. LOGIKA LAB (Z ZESPOŁAMI) ---
+# --- LOGIKA LAB ---
 elif "Badania Laboratoryjne" in wybor:
     st.header("🧪 Kreator Pakietu Badań")
     df = get_supabase_data()
@@ -341,20 +300,16 @@ elif "Badania Laboratoryjne" in wybor:
             
             if pacjenci > 0:
                 dni = math.ceil(pacjenci / (100 * n_zesp))
-                godziny = math.ceil(pacjenci / (12.5 * n_zesp))
-                is_remote = km > 150
-                
                 k_lab = pacjenci * suma_pakietu
                 k_pieleg = (pacjenci / 12.5) * 80.0 
                 k_dojazd = km * 2 * STAWKA_KM * n_zesp
-                k_hotel = (dni * KOSZT_NOCLEGU * n_zesp) if (is_remote or dni > 1) else 0.0
-                
+                k_hotel = (dni * KOSZT_NOCLEGU * n_zesp) if (km > 150 or dni > 1) else 0.0
                 k_ops = k_pieleg + k_dojazd + k_hotel
+                
                 total_koszt_ops += k_ops
                 total_koszt_lab += k_lab
                 total_pacjenci += pacjenci
                 opis_lok += f"- {nazwa_lok}: {pacjenci} os. ({n_zesp} zesp. lab)\n"
-                
                 st.markdown(f'<div class="op-info">⏱️ {n_zesp} Zesp. Lab ➡ <b>{dni} dni</b> pracy.</div>', unsafe_allow_html=True)
 
     razem = total_koszt_ops + total_koszt_lab
@@ -362,10 +317,8 @@ elif "Badania Laboratoryjne" in wybor:
     if total_pacjenci > 0:
         k1, k2, k3 = st.columns(3)
         k1.metric("1. BEP", f"{razem:.2f} PLN")
-        s_min = (total_koszt_ops * 1.5) + total_koszt_lab
-        s_pref = (total_koszt_ops * 2.0) + total_koszt_lab
-        k2.metric("2. Min", f"{s_min:.2f} PLN")
-        k3.metric("3. Pref", f"{s_pref:.2f} PLN")
+        k2.metric("2. Min", f"{(total_koszt_ops * 1.5) + total_koszt_lab:.2f} PLN")
+        k3.metric("3. Pref", f"{(total_koszt_ops * 2.0) + total_koszt_lab:.2f} PLN")
         
         c1, c2 = st.columns(2)
         with c1: cena = st.number_input("CENA KOŃCOWA (BRUTTO/ZW):", value=razem*1.2)
