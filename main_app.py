@@ -82,6 +82,7 @@ DANE_HANDLOWCOW = {
     "ja@longlife.pl": {
         "imie": "Jarosław Augustyniak",
         "stanowisko": "--"
+    },
     # Dodaj kolejne osoby według tego samego schematu:
     # "kasia@twojafirma.pl": {"imie": "Katarzyna Nowak", "stanowisko": "Key Account Manager"},
 }
