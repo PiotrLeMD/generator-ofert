@@ -7,25 +7,22 @@ from datetime import date
 # --- 1. KONFIGURACJA ---
 st.set_page_config(page_title="Generator Ofert Medycznych", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
 
-# --- 2. SYSTEM LOGOWANIA (POPRAWIONY) ---
+# --- 2. SYSTEM LOGOWANIA ---
 def check_password():
     """Zwraca True, jeśli użytkownik wpisał poprawne hasło."""
     
     def password_entered():
-        # Sprawdza czy login istnieje w sekcji [passwords] w Secrets i czy hasło się zgadza
         if (
             st.session_state["username"] in st.secrets["passwords"]
             and st.session_state["password"] == st.secrets["passwords"][st.session_state["username"]]
         ):
             st.session_state["password_correct"] = True
-            # ZAPISUJEMY LOGIN NA STAŁE, ABY NIE ZNIKNĄŁ PO ZALOGOWANIU:
             st.session_state["logged_in_user"] = st.session_state["username"] 
-            del st.session_state["password"]  # Kasujemy hasło z pamięci
+            del st.session_state["password"]
         else:
             st.session_state["password_correct"] = False
 
     if "password_correct" not in st.session_state:
-        # Ekran startowy (niezalogowany)
         st.markdown("<h1 style='text-align: center;'>Zaloguj się do systemu</h1>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
@@ -34,7 +31,6 @@ def check_password():
             st.button("Zaloguj", on_click=password_entered, use_container_width=True)
         return False
     elif not st.session_state["password_correct"]:
-        # Błędne hasło
         st.markdown("<h1 style='text-align: center;'>Zaloguj się do systemu</h1>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
@@ -44,15 +40,14 @@ def check_password():
             st.error("⛔ Błędny login lub hasło. Spróbuj ponownie.")
         return False
     else:
-        # Zalogowano poprawnie!
         return True
 
 # --- URUCHOMIENIE STRAŻNIKA ---
 if not check_password():
-    st.stop() # Jeśli False, zatrzymujemy kod i nie pokazujemy aplikacji!
+    st.stop()
 
 # =========================================================================
-# === PONIŻEJ ZACZYNA SIĘ WŁAŚCIWA APLIKACJA (UKRYTA PRZED NIEZALOGOWANYMI) ===
+# === PONIŻEJ ZACZYNA SIĘ WŁAŚCIWA APLIKACJA ===
 # =========================================================================
 
 if 'koszyk' not in st.session_state: st.session_state['koszyk'] = []
@@ -198,7 +193,6 @@ def render_usluga_standard(nazwa_uslugi, stawka_local, stawka_remote, koszt_mat,
 
 # --- MENU GŁÓWNE ---
 st.sidebar.title("Nawigacja")
-# Wyświetlamy informację o tym, kto jest zalogowany (ZMIANA NA TRWAŁĄ ZMIENNĄ)
 st.sidebar.caption(f"Zalogowano jako: **{st.session_state.get('logged_in_user', '')}**")
 st.sidebar.markdown("---")
 
@@ -223,7 +217,6 @@ if "ZESTAWIENIE OFERTY" in wybor:
             st.subheader("Handlowiec (Ty)")
             handlowiec = st.text_input("Imię i Nazwisko:", placeholder="Twoje Imię")
             stanowisko = st.text_input("Stanowisko:", value="Manager ds. Klientów")
-            # Podpowiadamy login jako e-mail z trwałej zmiennej
             handlowiec_email = st.text_input("Email (Ty):", value=st.session_state.get('logged_in_user', ''))
 
     st.divider()
@@ -257,4 +250,91 @@ if "ZESTAWIENIE OFERTY" in wybor:
         for item in st.session_state['koszyk']: md += f"| {item['Usługa']} | {item['Cena']:.2f} PLN |\n"
         md += f"| **RAZEM** | **{suma:.2f} PLN** |\n\n---\n"
         
-        md += f"# Zapraszamy do współpracy\n### Skontaktuj się z nami\n\n**{handlowiec if handlowiec else 'Twój Opiekun'}** \n{stanowisko}  \n📧 {
+        # POPRAWIONY I ZAMKNIĘTY KOD:
+        md += f"# Zapraszamy do współpracy\n### Skontaktuj się z nami\n\n**{handlowiec if handlowiec else 'Twój Opiekun'}** \n{stanowisko}  \n📧 {handlowiec_email if handlowiec_email else 'oferta@twojafirma.pl'}\n\n**Nota prawna:** Podane ceny są cenami końcowymi do zapłaty (Brutto). Usługi medyczne zwolnione z VAT na podst. art. 43 ust. 1 ustawy o VAT.\n"
+        
+        with st.expander("📄 KLIKNIJ TUTAJ, ABY POBRAĆ WSAD DO GAMMY (KOD MARKDOWN)", expanded=False):
+            st.markdown("Instrukcja: Najedź myszką na poniższy kod i kliknij **ikonę kopiowania** (📋) w prawym górnym rogu.")
+            st.code(md, language='markdown')
+
+# --- LOGIKA LAB ---
+elif "Badania Laboratoryjne" in wybor:
+    st.header("🧪 Kreator Pakietu Badań")
+    df = get_supabase_data()
+    if df.empty: st.stop()
+    
+    c1, c2 = st.columns([1, 1])
+    with c1: wybrane = st.multiselect("Wybierz badania:", df['nazwa'].tolist())
+    
+    suma_pakietu = 0.0
+    if wybrane:
+        koszyk_lab = df[df['nazwa'].isin(wybrane)]
+        with c2: st.dataframe(koszyk_lab[['nazwa', 'cena']], hide_index=True)
+        suma_pakietu = koszyk_lab['cena'].sum()
+        st.metric("Cena pakietu (osoba)", f"{suma_pakietu:.2f} PLN")
+    
+    st.divider()
+    ile_lok = st.number_input("Ile lokalizacji?", 1, value=1)
+    tabs = st.tabs([f"Lok. {i+1}" for i in range(ile_lok)])
+    
+    total_koszt_ops, total_koszt_lab, total_pacjenci = 0.0, 0.0, 0
+    opis_lok = ""
+
+    for i, tab in enumerate(tabs):
+        with tab:
+            st.markdown(f"**Lokalizacja {i+1}**")
+            col_m, col_z = st.columns([2, 1])
+            with col_m:
+                miasto = st.text_input(f"Miejscowość:", placeholder="np. Centrala", key=f"lab_city_{i}")
+                nazwa_lok = miasto if miasto else f"Lok {i+1}"
+            with col_z:
+                n_zesp = st.number_input("Liczba Zespołów", 1, 10, 1, key=f"lz_{i}")
+
+            c1, c2 = st.columns(2)
+            pacjenci = c1.number_input("Uczestnicy (Norma ~100/dzień)", 0, value=0, key=f"lp_{i}")
+            km = c2.number_input("Km od Wawy", 0, value=0, key=f"lkm_{i}")
+            
+            if pacjenci > 0:
+                dni = math.ceil(pacjenci / (100 * n_zesp))
+                k_lab = pacjenci * suma_pakietu
+                k_pieleg = (pacjenci / 12.5) * 80.0 
+                k_dojazd = km * 2 * STAWKA_KM * n_zesp
+                k_hotel = (dni * KOSZT_NOCLEGU * n_zesp) if (km > 150 or dni > 1) else 0.0
+                k_ops = k_pieleg + k_dojazd + k_hotel
+                
+                total_koszt_ops += k_ops
+                total_koszt_lab += k_lab
+                total_pacjenci += pacjenci
+                opis_lok += f"- {nazwa_lok}: {pacjenci} os. ({n_zesp} zesp. lab)\n"
+                st.markdown(f'<div class="op-info">⏱️ {n_zesp} Zesp. Lab ➡ <b>{dni} dni</b> pracy.</div>', unsafe_allow_html=True)
+
+    razem = total_koszt_ops + total_koszt_lab
+    st.divider()
+    if total_pacjenci > 0:
+        k1, k2, k3 = st.columns(3)
+        k1.metric("1. BEP", f"{razem:.2f} PLN")
+        k2.metric("2. Min", f"{(total_koszt_ops * 1.5) + total_koszt_lab:.2f} PLN")
+        k3.metric("3. Pref", f"{(total_koszt_ops * 2.0) + total_koszt_lab:.2f} PLN")
+        
+        c1, c2 = st.columns(2)
+        with c1: cena = st.number_input("CENA KOŃCOWA (BRUTTO/ZW):", value=razem*1.2)
+        with c2: 
+            st.write("Status:")
+            s, m, mar = straznik_rentownosci(total_koszt_ops, total_koszt_lab, cena)
+            if s == "error": st.error(m)
+            elif s == "warning": st.warning(m)
+            else: st.success(m)
+        
+        if st.button("➕ Dodaj Pakiet Lab"):
+            if s!="error": 
+                logistyka = f"**Pakiet Badań Lab**\nZakres: {', '.join(wybrane)}\n{generuj_logistyke_opis(total_pacjenci, opis_lok)}"
+                dodaj_do_koszyka("Badania Laboratoryjne", cena, logistyka, mar)
+            else: st.error("Brak rentowności!")
+
+# --- POZOSTAŁE ---
+elif "Cukrzyca BASIC" in wybor: render_usluga_standard("Cukrzyca BASIC", 640, 1000, 40, 50, max_zespolow=5)
+elif "Cukrzyca PREMIUM" in wybor: render_usluga_standard("Cukrzyca PREMIUM", 640, 1000, 40, 50, 320, 500, max_zespolow=5)
+elif "Kardiologia" in wybor: render_usluga_standard("Profilaktyka Chorób Serca", 640, 1000, 30, 50, max_zespolow=3)
+elif "Spirometria" in wybor: render_usluga_standard("Spirometria", 1000, 1200, 5, 40, max_zespolow=2)
+elif "USG" in wybor: render_usluga_standard("USG w Miejscu Pracy", 5000, 5500, 0, 30, koszt_mat_dzien=200, max_zespolow=2)
+elif "Dermatoskopia" in wybor: render_usluga_standard("Dermatoskopia", 4500, 5500, 0, 45, max_zespolow=3)
