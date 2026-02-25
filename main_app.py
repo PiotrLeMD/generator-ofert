@@ -59,10 +59,11 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- BAZA WIEDZY: HANDLOWCY ---
+# --- BAZA WIEDZY: HANDLOWCY (PODMIEŃ NA SWOJE DANE) ---
 DANE_HANDLOWCOW = {
-    "jan@twojafirma.pl": {"imie": "Jan Kowalski", "stanowisko": "Senior Account Manager"},
-    "szef@twojafirma.pl": {"imie": "Piotr Szef", "stanowisko": "Dyrektor ds. Kluczowych Klientów"},
+    "katarzyna.czarnowska@longlife.pl": {"imie": "Katarzyna Czarnowska", "stanowisko": "Członek Zarządu, Dyrektor Operacyjny"},
+    "piotr.leszczynski@longlife.pl": {"imie": "Piotr Leszczyński", "stanowisko": "Członek Zarządu, Dyrektor Medyczny"},
+    "paulina.nytko@longlife.pl": {"imie": "Paulina Nytko", "stanowisko": "Health & Wellbeing Business Partner"},
 }
 
 # --- OPISY MARKETINGOWE ---
@@ -209,8 +210,13 @@ def render_usluga_standard(nazwa_uslugi, stawka_local, stawka_remote, koszt_mat,
 # --- MENU GŁÓWNE ---
 st.sidebar.title("Nawigacja")
 
-current_user = st.session_state.get('logged_in_user', '')
-user_data = DANE_HANDLOWCOW.get(current_user, {"imie": "Nieznany Handlowiec", "stanowisko": "Manager ds. Klientów"})
+# BEZPIECZNE POBIERANIE USERA (Korekta liter i spacji)
+raw_user = st.session_state.get('logged_in_user', st.session_state.get('username', ''))
+current_user = str(raw_user).strip().lower()
+
+# Upewniamy się, że klucze w DANE_HANDLOWCOW też są bez niespodzianek
+bezpieczny_slownik = {k.strip().lower(): v for k, v in DANE_HANDLOWCOW.items()}
+user_data = bezpieczny_slownik.get(current_user, {"imie": "Nieznany Handlowiec", "stanowisko": "Manager ds. Klientów"})
 
 st.sidebar.caption(f"Zalogowano jako: **{user_data['imie']}** ({current_user})")
 st.sidebar.markdown("---")
@@ -281,7 +287,6 @@ if "ZESTAWIENIE OFERTY" in wybor:
             md += f"# Opcja {i+1}: {nazwa}\n{opis_marketingowy}\n\n### Parametry Twojej Realizacji\n{clean_logistyka}\n\n"
             md += f"> **Inwestycja Całkowita: {item['Cena (Brutto)']:.2f} PLN (zw. z VAT)**\n"
             
-            # DODANE: CENA RYNKOWA Z PRZEKREŚLENIEM (Psychologia Sprzedaży)
             if item.get('Cena rynkowa (osoba)', 0) > 0:
                 md += f"> *Sugerowana cena rynkowa w placówce: ~~{item['Cena rynkowa (osoba)']:.2f} PLN / osobę~~*\n"
                 
@@ -314,7 +319,7 @@ elif "Badania Laboratoryjne" in wybor:
     
     suma_kosztow = 0.0
     suma_cen = 0.0
-    suma_rynkowa = 0.0 # DODANE
+    suma_rynkowa = 0.0
     szczegoly_pakietow_do_oferty = ""
 
     if wybrane:
@@ -327,7 +332,6 @@ elif "Badania Laboratoryjne" in wybor:
             
         suma_cen = koszyk_lab['cena'].sum()
         
-        # DODANE: Liczenie ceny rynkowej jeśli kolumna istnieje
         if 'cena_rynkowa' in koszyk_lab.columns:
             suma_rynkowa = koszyk_lab['cena_rynkowa'].sum()
         
@@ -338,7 +342,6 @@ elif "Badania Laboratoryjne" in wybor:
                 st.info(f"🧬 **{row['nazwa']}**\n\n*Skład:* {sklad}")
                 szczegoly_pakietow_do_oferty += f"- **{row['nazwa']}**: {sklad}\n"
                 
-        # ZMIENIONE KAFELKI:
         c3, c4 = st.columns(2)
         if suma_rynkowa > 0:
             c3.metric("Sugerowana CENA RYNKOWA (osoba)", f"{suma_rynkowa:.2f} PLN")
@@ -368,8 +371,7 @@ elif "Badania Laboratoryjne" in wybor:
             if pacjenci > 0:
                 dni = math.ceil(pacjenci / (100 * n_zesp))
                 
-                # POPRAWKA LOGISTYKI (PRZYWRÓCONA SYMULACJA)
-                symulacja = symulacja_czasu(pacjenci, 100, 5) # wydajnosc 100, max 5 zespolow dla symulacji
+                symulacja = symulacja_czasu(pacjenci, 100, 5)
                 
                 k_lab_koszt = pacjenci * suma_kosztow
                 k_lab_przychod = pacjenci * suma_cen
@@ -386,7 +388,6 @@ elif "Badania Laboratoryjne" in wybor:
                 
                 opis_lok += f"- {nazwa_lok}: {pacjenci} os. ({n_zesp} zesp. lab)\n"
                 
-                # Wyświetlanie żaróweczki wraca do gry!
                 st.markdown(f'<div class="op-info">⏱️ {n_zesp} Zesp. Lab ➡ <b>{dni} dni</b> pracy.<br>💡 Alternatywy: {symulacja}</div>', unsafe_allow_html=True)
 
     razem_koszt = total_koszt_ops + total_koszt_lab
@@ -419,8 +420,6 @@ elif "Badania Laboratoryjne" in wybor:
             if s!="error": 
                 logistyka = f"**Wybrane Pakiety i ich skład:**\n{szczegoly_pakietow_do_oferty}\n{generuj_logistyke_opis(total_pacjenci, opis_lok)}"
                 nazwa_w_koszyku = f"Badania Laboratoryjne: {', '.join(wybrane)}"
-                
-                # Dodajemy cenę rynkową do koszyka
                 dodaj_do_koszyka(nazwa_w_koszyku, cena, cena_per_capita, suma_rynkowa, logistyka, mar)
             else: st.error("Brak rentowności!")
 
