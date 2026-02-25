@@ -10,7 +10,6 @@ st.set_page_config(page_title="Generator Ofert Medycznych", page_icon="🏥", la
 # --- 2. SYSTEM LOGOWANIA ---
 def check_password():
     """Zwraca True, jeśli użytkownik wpisał poprawne hasło."""
-    
     def password_entered():
         if (
             st.session_state["username"] in st.secrets["passwords"]
@@ -42,7 +41,6 @@ def check_password():
     else:
         return True
 
-# --- URUCHOMIENIE STRAŻNIKA ---
 if not check_password():
     st.stop()
 
@@ -61,30 +59,10 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- BAZA WIEDZY: HANDLOWCY (NOWOŚĆ - WYPEŁNIJ SWOIMI DANYMI) ---
+# --- BAZA WIEDZY: HANDLOWCY ---
 DANE_HANDLOWCOW = {
-    "paulina.nytko@longlife.pl": {
-        "imie": "Paulina Nytko", 
-        "stanowisko": "Health & Wellbeing Business Partner"
-    },
-    "katarzyna.czarnowska@longlife.pl": {
-        "imie": "Katarzyna Czarnowska", 
-        "stanowisko": "Członek Zarządu, Dyrektor Operacyjny"
-    },
-    "piotr.leszczynski@longlife.pl": {
-        "imie": "Piotr Leszczyński",
-        "stanowisko": "Członek Zarządu, Dyrektor Medyczny"
-    },
-    "filip.clapka@longlife.pl": {
-        "imie": "Filip Cłapka",
-        "stanowisko": "--"
-    },
-    "ja@longlife.pl": {
-        "imie": "Jarosław Augustyniak",
-        "stanowisko": "--"
-    },
-    # Dodaj kolejne osoby według tego samego schematu:
-    # "kasia@twojafirma.pl": {"imie": "Katarzyna Nowak", "stanowisko": "Key Account Manager"},
+    "jan@twojafirma.pl": {"imie": "Jan Kowalski", "stanowisko": "Senior Account Manager"},
+    "szef@twojafirma.pl": {"imie": "Piotr Szef", "stanowisko": "Dyrektor ds. Kluczowych Klientów"},
 }
 
 # --- OPISY MARKETINGOWE ---
@@ -110,6 +88,8 @@ def get_supabase_data():
         if not df.empty:
             df.columns = df.columns.str.lower().str.strip()
             if 'cena' in df.columns: df['cena'] = pd.to_numeric(df['cena'], errors='coerce')
+            if 'koszt' in df.columns: df['koszt'] = pd.to_numeric(df['koszt'], errors='coerce')
+            if 'cena_rynkowa' in df.columns: df['cena_rynkowa'] = pd.to_numeric(df['cena_rynkowa'], errors='coerce')
         return df
     except Exception as e:
         st.error(f"⚠️ Błąd bazy: {e}")
@@ -120,9 +100,14 @@ STAWKA_KM = 2.0
 LIMIT_LOKALIZACJI = 20
 
 # --- FUNKCJE LOGICZNE ---
-def dodaj_do_koszyka(nazwa, cena, logistyka_opis, marza_procent):
+def dodaj_do_koszyka(nazwa, cena, cena_per_capita, cena_rynkowa, logistyka_opis, marza_procent):
     st.session_state['koszyk'].append({
-        "Usługa": nazwa, "Cena": cena, "Marża %": f"{marza_procent:.1f}%", "Logistyka": logistyka_opis
+        "Usługa": nazwa, 
+        "Cena (Brutto)": cena, 
+        "Cena za osobę": cena_per_capita,
+        "Cena rynkowa (osoba)": cena_rynkowa,
+        "Marża %": f"{marza_procent:.1f}%", 
+        "Logistyka": logistyka_opis
     })
     st.toast(f"✅ Dodano {nazwa} do zestawienia!")
 
@@ -203,7 +188,11 @@ def render_usluga_standard(nazwa_uslugi, stawka_local, stawka_remote, koszt_mat,
         k3.metric("3. 🟢 Pref", f"{total_koszt*2.0:.2f} PLN")
         
         c_final_1, c_final_2 = st.columns([1, 1])
-        with c_final_1: cena_klienta = st.number_input("CENA KOŃCOWA (BRUTTO/ZW):", value=total_koszt*1.8)
+        with c_final_1: 
+            cena_klienta = st.number_input("CENA KOŃCOWA (BRUTTO/ZW):", value=total_koszt*1.8)
+            cena_per_capita = cena_klienta / total_pacjenci if total_pacjenci > 0 else 0
+            st.caption(f"Wychodzi: **{cena_per_capita:.2f} PLN** za osobę")
+            
         with c_final_2:
             st.write("Status:")
             status, msg, marza = straznik_rentownosci(total_koszt, 0.0, cena_klienta)
@@ -214,7 +203,7 @@ def render_usluga_standard(nazwa_uslugi, stawka_local, stawka_remote, koszt_mat,
         if st.button(f"➕ Dodaj do Oferty"):
             if status != "error":
                 logistyka = generuj_logistyke_opis(total_pacjenci, opis_lok)
-                dodaj_do_koszyka(nazwa_uslugi, cena_klienta, logistyka, marza)
+                dodaj_do_koszyka(nazwa_uslugi, cena_klienta, cena_per_capita, 0.0, logistyka, marza)
             else: st.error("Brak rentowności!")
 
 # --- MENU GŁÓWNE ---
@@ -227,7 +216,19 @@ st.sidebar.caption(f"Zalogowano jako: **{user_data['imie']}** ({current_user})")
 st.sidebar.markdown("---")
 
 n_koszyk = len(st.session_state['koszyk'])
-wybor = st.sidebar.radio("Menu:", ["ZESTAWIENIE OFERTY " + (f"📋 ({n_koszyk})" if n_koszyk>0 else "📋"), "---", "Badania Laboratoryjne (Pakiet)", "Cukrzyca BASIC", "Cukrzyca PREMIUM", "Kardiologia", "Spirometria", "USG w Firmie", "Dermatoskopia"])
+wybor = st.sidebar.radio(
+    "Menu:", 
+    [
+        "ZESTAWIENIE OFERTY " + (f"📋 ({n_koszyk})" if n_koszyk>0 else "📋"), 
+        "Badania Laboratoryjne (Pakiet)", 
+        "Cukrzyca BASIC", 
+        "Cukrzyca PREMIUM", 
+        "Kardiologia", 
+        "Spirometria", 
+        "USG w Firmie", 
+        "Dermatoskopia"
+    ]
+)
 st.sidebar.markdown("---")
 if st.sidebar.button("🗑️ Wyczyść koszyk"): st.session_state['koszyk'] = []; st.rerun()
 
@@ -245,7 +246,6 @@ if "ZESTAWIENIE OFERTY" in wybor:
             kontakt_email = st.text_input("Email (Klient):", placeholder="jan@firma.pl")
         with col_h:
             st.subheader("Handlowiec (Ty)")
-            # POLA WYPEŁNIAJĄ SIĘ AUTOMATYCZNIE NA BAZIE SŁOWNIKA
             handlowiec = st.text_input("Imię i Nazwisko:", value=user_data['imie'])
             stanowisko = st.text_input("Stanowisko:", value=user_data['stanowisko'])
             handlowiec_email = st.text_input("Email (Ty):", value=current_user)
@@ -253,16 +253,14 @@ if "ZESTAWIENIE OFERTY" in wybor:
     st.divider()
     if st.session_state['koszyk']:
         df = pd.DataFrame(st.session_state['koszyk'])
-        df = df.rename(columns={"Cena": "Cena (Brutto)"})
-        st.dataframe(df[["Usługa", "Cena (Brutto)", "Marża %"]], use_container_width=True, hide_index=True)
-        
-        suma = df["Cena (Brutto)"].sum()
+        st.dataframe(df[["Usługa", "Cena (Brutto)", "Cena za osobę", "Marża %"]], use_container_width=True, hide_index=True)
         
         st.divider()
         st.subheader("🚀 Generowanie Prezentacji")
         st.info("Poniżej znajduje się gotowy kod dla AI Gamma.")
 
         today = date.today().strftime("%d.%m.%Y")
+        
         md = f"# Oferta Współpracy Medycznej\n### Dla: {klient if klient else 'Naszego Klienta'}\n"
         if adres: md += f"**Adres:** {adres}\n"
         if kontakt: md += f"**Osoba kontaktowa:** {kontakt}\n"
@@ -274,12 +272,29 @@ if "ZESTAWIENIE OFERTY" in wybor:
         for i, item in enumerate(st.session_state['koszyk']):
             nazwa = item['Usługa']
             opis_marketingowy = OPISY_MARKETINGOWE.get(nazwa, "### Szczegóły usługi\nIndywidualnie dopasowany zakres badań.")
-            clean_logistyka = item['Logistyka'].replace("\n", "  \n")
-            md += f"# Opcja {i+1}: {nazwa}\n{opis_marketingowy}\n\n### Parametry Twojej Realizacji\n{clean_logistyka}\n\n> **Inwestycja: {item['Cena']:.2f} PLN (zw. z VAT)**\n\n---\n"
             
-        md += f"# Podsumowanie Kosztów\n\n| Usługa | Cena (Brutto) |\n|---|---|\n"
-        for item in st.session_state['koszyk']: md += f"| {item['Usługa']} | {item['Cena']:.2f} PLN |\n"
-        md += f"| **RAZEM** | **{suma:.2f} PLN** |\n\n---\n"
+            if "Badania Laboratoryjne" in nazwa:
+                opis_marketingowy = OPISY_MARKETINGOWE.get("Badania Laboratoryjne")
+                
+            clean_logistyka = item['Logistyka'].replace("\n", "  \n")
+            
+            md += f"# Opcja {i+1}: {nazwa}\n{opis_marketingowy}\n\n### Parametry Twojej Realizacji\n{clean_logistyka}\n\n"
+            md += f"> **Inwestycja Całkowita: {item['Cena (Brutto)']:.2f} PLN (zw. z VAT)**\n"
+            
+            # DODANE: CENA RYNKOWA Z PRZEKREŚLENIEM (Psychologia Sprzedaży)
+            if item.get('Cena rynkowa (osoba)', 0) > 0:
+                md += f"> *Sugerowana cena rynkowa w placówce: ~~{item['Cena rynkowa (osoba)']:.2f} PLN / osobę~~*\n"
+                
+            if item['Cena za osobę'] > 0:
+                md += f"> *Nasza cena w pakiecie: **{item['Cena za osobę']:.2f} PLN / osobę***\n"
+                
+            md += f"\n---\n"
+            
+        md += f"# Podsumowanie Opcji do Wyboru\n\n| Wariant / Opcja | Inwestycja Całkowita | Koszt na pracownika |\n|---|---|---|\n"
+        for item in st.session_state['koszyk']: 
+            per_capita_str = f"{item['Cena za osobę']:.2f} PLN" if item['Cena za osobę'] > 0 else "-"
+            md += f"| {item['Usługa']} | {item['Cena (Brutto)']:.2f} PLN | {per_capita_str} |\n"
+        md += f"\n---\n"
         
         md += f"# Zapraszamy do współpracy\n### Skontaktuj się z nami\n\n**{handlowiec if handlowiec else 'Twój Opiekun'}** \n{stanowisko}  \n📧 {handlowiec_email if handlowiec_email else 'oferta@twojafirma.pl'}\n\n**Nota prawna:** Podane ceny są cenami końcowymi do zapłaty (Brutto). Usługi medyczne zwolnione z VAT na podst. art. 43 ust. 1 ustawy o VAT.\n"
         
@@ -294,20 +309,46 @@ elif "Badania Laboratoryjne" in wybor:
     if df.empty: st.stop()
     
     c1, c2 = st.columns([1, 1])
-    with c1: wybrane = st.multiselect("Wybierz badania:", df['nazwa'].tolist())
+    with c1: 
+        wybrane = st.multiselect("Wybierz pakiety badań:", df['nazwa'].tolist())
     
-    suma_pakietu = 0.0
+    suma_kosztow = 0.0
+    suma_cen = 0.0
+    suma_rynkowa = 0.0 # DODANE
+    szczegoly_pakietow_do_oferty = ""
+
     if wybrane:
         koszyk_lab = df[df['nazwa'].isin(wybrane)]
-        with c2: st.dataframe(koszyk_lab[['nazwa', 'cena']], hide_index=True)
-        suma_pakietu = koszyk_lab['cena'].sum()
-        st.metric("Cena pakietu (osoba)", f"{suma_pakietu:.2f} PLN")
+        
+        if 'koszt' in koszyk_lab.columns:
+            suma_kosztow = koszyk_lab['koszt'].sum()
+        else:
+            suma_kosztow = koszyk_lab['cena'].sum()
+            
+        suma_cen = koszyk_lab['cena'].sum()
+        
+        # DODANE: Liczenie ceny rynkowej jeśli kolumna istnieje
+        if 'cena_rynkowa' in koszyk_lab.columns:
+            suma_rynkowa = koszyk_lab['cena_rynkowa'].sum()
+        
+        with c2: 
+            st.markdown("**Wybrane Pakiety i ich skład:**")
+            for index, row in koszyk_lab.iterrows():
+                sklad = row.get('skladniki', 'Brak szczegółowego opisu.')
+                st.info(f"🧬 **{row['nazwa']}**\n\n*Skład:* {sklad}")
+                szczegoly_pakietow_do_oferty += f"- **{row['nazwa']}**: {sklad}\n"
+                
+        # ZMIENIONE KAFELKI:
+        c3, c4 = st.columns(2)
+        if suma_rynkowa > 0:
+            c3.metric("Sugerowana CENA RYNKOWA (osoba)", f"{suma_rynkowa:.2f} PLN")
+        c4.metric("NASZA CENA (osoba)", f"{suma_cen:.2f} PLN")
     
     st.divider()
     ile_lok = st.number_input("Ile lokalizacji?", 1, value=1)
     tabs = st.tabs([f"Lok. {i+1}" for i in range(ile_lok)])
     
-    total_koszt_ops, total_koszt_lab, total_pacjenci = 0.0, 0.0, 0
+    total_koszt_ops, total_koszt_lab, total_przychod_lab, total_pacjenci = 0.0, 0.0, 0.0, 0
     opis_lok = ""
 
     for i, tab in enumerate(tabs):
@@ -326,39 +367,61 @@ elif "Badania Laboratoryjne" in wybor:
             
             if pacjenci > 0:
                 dni = math.ceil(pacjenci / (100 * n_zesp))
-                k_lab = pacjenci * suma_pakietu
+                
+                # POPRAWKA LOGISTYKI (PRZYWRÓCONA SYMULACJA)
+                symulacja = symulacja_czasu(pacjenci, 100, 5) # wydajnosc 100, max 5 zespolow dla symulacji
+                
+                k_lab_koszt = pacjenci * suma_kosztow
+                k_lab_przychod = pacjenci * suma_cen
+                
                 k_pieleg = (pacjenci / 12.5) * 80.0 
                 k_dojazd = km * 2 * STAWKA_KM * n_zesp
                 k_hotel = (dni * KOSZT_NOCLEGU * n_zesp) if (km > 150 or dni > 1) else 0.0
                 k_ops = k_pieleg + k_dojazd + k_hotel
                 
                 total_koszt_ops += k_ops
-                total_koszt_lab += k_lab
+                total_koszt_lab += k_lab_koszt
+                total_przychod_lab += k_lab_przychod
                 total_pacjenci += pacjenci
+                
                 opis_lok += f"- {nazwa_lok}: {pacjenci} os. ({n_zesp} zesp. lab)\n"
-                st.markdown(f'<div class="op-info">⏱️ {n_zesp} Zesp. Lab ➡ <b>{dni} dni</b> pracy.</div>', unsafe_allow_html=True)
+                
+                # Wyświetlanie żaróweczki wraca do gry!
+                st.markdown(f'<div class="op-info">⏱️ {n_zesp} Zesp. Lab ➡ <b>{dni} dni</b> pracy.<br>💡 Alternatywy: {symulacja}</div>', unsafe_allow_html=True)
 
-    razem = total_koszt_ops + total_koszt_lab
+    razem_koszt = total_koszt_ops + total_koszt_lab
+    
     st.divider()
     if total_pacjenci > 0:
         k1, k2, k3 = st.columns(3)
-        k1.metric("1. BEP", f"{razem:.2f} PLN")
-        k2.metric("2. Min", f"{(total_koszt_ops * 1.5) + total_koszt_lab:.2f} PLN")
-        k3.metric("3. Pref", f"{(total_koszt_ops * 2.0) + total_koszt_lab:.2f} PLN")
+        k1.metric("1. KOSZT BAZOWY (z lab)", f"{razem_koszt:.2f} PLN")
+        
+        s_min = total_przychod_lab + (total_koszt_ops * 1.5)
+        s_pref = total_przychod_lab + (total_koszt_ops * 2.0)
+        
+        k2.metric("2. Min", f"{s_min:.2f} PLN")
+        k3.metric("3. Pref", f"{s_pref:.2f} PLN")
         
         c1, c2 = st.columns(2)
-        with c1: cena = st.number_input("CENA KOŃCOWA (BRUTTO/ZW):", value=razem*1.2)
+        with c1:
+            cena = st.number_input("CENA KOŃCOWA (BRUTTO/ZW):", value=s_pref)
+            cena_per_capita = cena / total_pacjenci if total_pacjenci > 0 else 0
+            st.caption(f"Wychodzi: **{cena_per_capita:.2f} PLN** za osobę")
+            
         with c2: 
             st.write("Status:")
-            s, m, mar = straznik_rentownosci(total_koszt_ops, total_koszt_lab, cena)
+            s, m, mar = straznik_rentownosci(razem_koszt, 0.0, cena)
             if s == "error": st.error(m)
             elif s == "warning": st.warning(m)
             else: st.success(m)
         
-        if st.button("➕ Dodaj Pakiet Lab"):
+        if st.button("➕ Dodaj Pakiet Lab do Oferty"):
             if s!="error": 
-                logistyka = f"**Pakiet Badań Lab**\nZakres: {', '.join(wybrane)}\n{generuj_logistyke_opis(total_pacjenci, opis_lok)}"
-                dodaj_do_koszyka("Badania Laboratoryjne", cena, logistyka, mar)
+                logistyka = f"**Wybrane Pakiety i ich skład:**\n{szczegoly_pakietow_do_oferty}\n{generuj_logistyke_opis(total_pacjenci, opis_lok)}"
+                nazwa_w_koszyku = f"Badania Laboratoryjne: {', '.join(wybrane)}"
+                
+                # Dodajemy cenę rynkową do koszyka
+                dodaj_do_koszyka(nazwa_w_koszyku, cena, cena_per_capita, suma_rynkowa, logistyka, mar)
             else: st.error("Brak rentowności!")
 
 # --- POZOSTAŁE ---
