@@ -63,8 +63,8 @@ st.markdown("""
 DANE_HANDLOWCOW = {
     "piotr.leszczynski@longlife.pl": {"imie": "Piotr Leszczyński", "stanowisko": "Członek Zarządu, Dyrektor Medyczny"},
     "katarzyna.czarnowska@longlife.pl": {"imie": "Katarzyna Czarnowska", "stanowisko": "Członek Zarządu, Dyrektor Operacyjny"},
-    "paulina.nytko@longlife.pl": {"imie": "Paulina Nytko", "stanowisko": ""},
-    "katarzyna.brzostek@longlife.pl": {"imie": "Katarzyna Brzostek", "stanowisko": ""},
+    "paulina.nytko@longlife.pl": {"imie": "Paulina Nytko", "stanowisko": "Health & Wellbeing Business Manager"},
+    "katarzyna.brzostek@longlife.pl": {"imie": "Katarzyna Brzostek", "stanowisko": "Health & Wellbeing Business Manager"},
     "jakub.jaruga@longlife.pl": {"imie": "Jakub Jaruga", "stanowisko": ""}
 }
 
