@@ -61,8 +61,11 @@ st.markdown("""
 
 # --- BAZA WIEDZY: HANDLOWCY ---
 DANE_HANDLOWCOW = {
-    "jan@twojafirma.pl": {"imie": "Jan Kowalski", "stanowisko": "Senior Account Manager"},
-    "szef@twojafirma.pl": {"imie": "Piotr Szef", "stanowisko": "Dyrektor ds. Kluczowych Klientów"},
+    "piotr.leszczynski@longlife.pl": {"imie": "Piotr Leszczyński", "stanowisko": "Członek Zarządu, Dyrektor Medyczny"},
+    "katarzyna.czarnowska@longlife.pl": {"imie": "Katarzyna Czarnowska", "stanowisko": "Członek Zarządu, Dyrektor Operacyjny"},
+    "paulina.nytko@longlife.pl": {"imie": "Paulina Nytko", "stanowisko": ""},
+    "katarzyna.brzostek@longlife.pl": {"imie": "Katarzyna Brzostek", "stanowisko": ""},
+    "jakub.jaruga@longlife.pl": {"imie": "Jakub Jaruga", "stanowisko": ""}
 }
 
 # --- OPISY MARKETINGOWE ---
