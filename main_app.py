@@ -777,20 +777,31 @@ elif "USG w Firmie" in wybor:
     if wybrane_usg: render_usluga_standard("USG w Firmie", 5000, 5500, 0, 30, koszt_mat_dzien=200, max_zespolow=2, wybrane_opcje=wybrane_usg)
     else: st.warning("Musisz wybrać przynajmniej jeden rodzaj badania USG, aby kontynuować wycenę.")
 
-# --- WEBINARY I EDUKACJA ---
+# --- WEBINARY I EDUKACJA (NOWY DYNAMICZNY MODUŁ) ---
 elif "Webinary i edukacja" in wybor:
     st.header("💻 Webinary Edukacyjne i Szkolenia")
     st.info("Dodaj do oferty profesjonalne szkolenia online prowadzone przez naszych ekspertów. Brak kosztów logistyki!")
 
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        temat_webinaru = st.selectbox("Wybierz temat prelekcji:", WEBINARY_TEMATY + ["Inny (wpisz poniżej)"])
-        if temat_webinaru == "Inny (wpisz poniżej)":
-            temat_webinaru = st.text_input("Wpisz niestandardowy temat szkolenia:")
-    with col2:
-        liczba_spotkan = st.number_input("Liczba spotkań / godzin:", min_value=1, value=1)
-        
-    cena_za_webinar = st.number_input("Cena za 1 spotkanie (PLN Brutto):", min_value=0.0, value=2500.0, step=100.0)
+    c1, c2 = st.columns(2)
+    with c1:
+        liczba_spotkan = st.number_input("Liczba zaplanowanych spotkań / godzin:", min_value=1, value=1, max_value=20)
+    with c2:
+        cena_za_webinar = st.number_input("Cena za 1 spotkanie (PLN Brutto):", min_value=0.0, value=2500.0, step=100.0)
+
+    st.markdown("### 📝 Przypisz tematy dla poszczególnych spotkań:")
+    tematy_wybrane = []
+    
+    # Generowanie wyboru tematu dla KAŻDEGO spotkania osobno
+    for i in range(liczba_spotkan):
+        col_sel, col_cust = st.columns([1, 1])
+        with col_sel:
+            temat = st.selectbox(f"Spotkanie {i+1}:", WEBINARY_TEMATY + ["Inny (wpisz poniżej)"], key=f"web_sel_{i}")
+        with col_cust:
+            if temat == "Inny (wpisz poniżej)":
+                temat_custom = st.text_input(f"Wpisz własny temat dla spotkania {i+1}:", key=f"web_cust_{i}")
+                tematy_wybrane.append(temat_custom)
+            else:
+                tematy_wybrane.append(temat)
 
     total_cena = liczba_spotkan * cena_za_webinar
 
@@ -801,11 +812,16 @@ elif "Webinary i edukacja" in wybor:
     k3.metric("Twoja Cena Końcowa", f"{total_cena:.2f} PLN")
 
     if st.button("➕ Dodaj Webinary do Oferty", use_container_width=True):
-        if temat_webinaru:
-            logistyka = f"Forma: Online (Zdalnie)\nTemat: {temat_webinaru}\nLiczba zaplanowanych spotkań: {liczba_spotkan}"
-            dodaj_do_koszyka(f"Webinar Edukacyjny: {temat_webinaru}", total_cena, 0.0, 0.0, logistyka, 100.0)
+        # Sprawdzamy czy handlowiec wpisał wszystkie niestandardowe tematy (nie zostawił pustego pola)
+        if all(t.strip() != "" for t in tematy_wybrane):
+            lista_tematow_str = "\n".join([f"{idx+1}. {t}" for idx, t in enumerate(tematy_wybrane)])
+            logistyka = f"Forma: Online (Zdalnie)\nLiczba zaplanowanych spotkań: {liczba_spotkan}\n\n**Harmonogram tematów:**\n{lista_tematow_str}"
+            
+            tytul_koszyk = f"Pakiet Webinarów ({liczba_spotkan} spotkań)" if liczba_spotkan > 1 else f"Webinar: {tematy_wybrane[0]}"
+            
+            dodaj_do_koszyka(tytul_koszyk, total_cena, 0.0, 0.0, logistyka, 100.0)
         else:
-            st.error("Wpisz temat webinaru, aby kontynuować.")
+            st.error("Wpisz brakujące tematy niestandardowe, aby kontynuować.")
 
 # --- POZOSTAŁE USŁUGI STANDARDOWE ---
 elif "Zarządzanie stresem" in wybor:
