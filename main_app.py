@@ -8,16 +8,14 @@ import urllib.parse
 # --- 1. KONFIGURACJA ---
 st.set_page_config(page_title="Generator Ofert Medycznych", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
 
-# --- 2. SYSTEM LOGOWANIA ---
+# --- 2. BRAMKA LOGOWANIA (Zamiast GitHuba) ---
 def check_password():
     def password_entered():
-        if (
-            st.session_state["username"] in st.secrets["passwords"]
-            and st.session_state["password"] == st.secrets["passwords"][st.session_state["username"]]
-        ):
+        # Ustawiamy JEDNO uniwersalne hasło dla wszystkich handlowców
+        if st.session_state["password"] == "LongLife2024!":
             st.session_state["password_correct"] = True
             st.session_state["logged_in_user"] = st.session_state["username"] 
-            del st.session_state["password"]
+            del st.session_state["password"]  # Usuwamy hasło z pamięci dla bezpieczeństwa
         else:
             st.session_state["password_correct"] = False
 
@@ -25,22 +23,23 @@ def check_password():
         st.markdown("<h1 style='text-align: center;'>Zaloguj się do systemu</h1>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            st.text_input("E-mail (Login)", key="username")
-            st.text_input("Hasło", type="password", key="password")
-            st.button("Zaloguj", on_click=password_entered, use_container_width=True)
+            st.text_input("Twój E-mail firmowy", key="username", placeholder="np. jan@longlife.pl")
+            st.text_input("Hasło dostępu", type="password", key="password")
+            st.button("Wejdź do generatora", on_click=password_entered, use_container_width=True)
         return False
     elif not st.session_state["password_correct"]:
         st.markdown("<h1 style='text-align: center;'>Zaloguj się do systemu</h1>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            st.text_input("E-mail (Login)", key="username")
-            st.text_input("Hasło", type="password", key="password")
-            st.button("Zaloguj", on_click=password_entered, use_container_width=True)
-            st.error("⛔ Błędny login lub hasło. Spróbuj ponownie.")
+            st.text_input("Twój E-mail firmowy", key="username")
+            st.text_input("Hasło dostępu", type="password", key="password")
+            st.button("Wejdź do generatora", on_click=password_entered, use_container_width=True)
+            st.error("⛔ Błędne hasło. Poprawne hasło to LongLife2024!")
         return False
     else:
         return True
 
+# Jeśli hasło nie jest poprawne, zatrzymujemy renderowanie reszty strony
 if not check_password():
     st.stop()
 
@@ -288,7 +287,7 @@ st.sidebar.title("Nawigacja")
 raw_user = st.session_state.get('logged_in_user', st.session_state.get('username', ''))
 current_user = str(raw_user).strip().lower()
 bezpieczny_slownik = {k.strip().lower(): v for k, v in DANE_HANDLOWCOW.items()}
-user_data = bezpieczny_slownik.get(current_user, {"imie": "Nieznany Handlowiec", "stanowisko": "Manager ds. Klientów"})
+user_data = bezpieczny_slownik.get(current_user, {"imie": "Pracownik LongLife", "stanowisko": "Manager ds. Klientów"})
 
 st.sidebar.caption(f"Zalogowano jako: **{user_data['imie']}**")
 st.sidebar.markdown("---")
@@ -408,7 +407,6 @@ if "Kalendarz i Rezerwacje" in wybor:
                 if not klient_rez or not lokalizacja_rez: 
                     st.error("Podaj nazwę klienta i lokalizację akcji!")
                 else:
-                    # Walidacja pojemności dla wszystkich zaznaczonych dni
                     has_error = False
                     for d in daty_do_sprawdzenia:
                         obecnie_zajete = df_zajetosc[(df_zajetosc['data_akcji'] == str(d)) & (df_zajetosc['usluga'] == usluga_rez)]['liczba_zespolow'].sum() if not df_zajetosc.empty else 0
@@ -416,7 +414,7 @@ if "Kalendarz i Rezerwacje" in wybor:
                         if obecnie_zajete + ile_zespolow_rez > limit:
                             st.error(f"⛔ Brak zasobów w dniu {d.strftime('%d.%m.%Y')}! Próbujesz zarezerwować {ile_zespolow_rez} zesp., ale zostało tylko {limit - obecnie_zajete}.")
                             has_error = True
-                            break # Przerywamy rezerwację jeśli chociaż 1 dzień nie pasuje
+                            break 
                     
                     if not has_error:
                         sukcesy = 0
