@@ -783,7 +783,7 @@ elif "USG w Firmie" in wybor:
 elif "Zarządzanie stresem" in wybor:
     st.info("Logika zaimplementowana w głównym bloku kalkulatorów, tutaj wersja uproszczona. Użyj opcji Dopasowanie do Budżetu lub wpisz ręcznie.")
 elif "Cukrzyca BASIC" in wybor: render_usluga_standard("Cukrzyca BASIC", 640, 1000, 40, 50, max_zespolow=5)
-elif "Cukrzyca PREMIUM" in wybor: render_usluga_standard("Cukrzyca PREMIUM", 640, 1000, 40, 50, 320, 500, max_zespolow=5)
+elif "Cukrzyca PREMIUM" in wybor: render_usluga_standard("Cukrzyca PREMIUM", 640, 1000, 40, 50, 320, max_zespolow=2)
 elif "Kardiologia" in wybor: render_usluga_standard("Kardiologia", 640, 1000, 30, 50, max_zespolow=3)
 elif "Spirometria" in wybor: render_usluga_standard("Spirometria", 1000, 1200, 5, 40, max_zespolow=2)
 elif "Dermatoskopia" in wybor: render_usluga_standard("Dermatoskopia", 4500, 5500, 0, 45, max_zespolow=3)
