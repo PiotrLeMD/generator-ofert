@@ -973,6 +973,109 @@ elif "Program Roczny (Abonament)" in wybor:
         st.subheader("Odwrócona kalkulacja budżetu")
         st.info("💡 Przeniesiono tę funkcję do dedykowanej zakładki '🎯 Dopasowanie do budżetu' w lewym menu.")
 
+# --- LOGIKA LAB ---
+elif "Badania Laboratoryjne (Pakiet)" in wybor:
+    st.header("🧪 Kreator Pakietu Badań")
+    
+    vouchery = st.checkbox("🎫 Wyceń w formie voucherów (+10 PLN / osobę do sugerowanej ceny klienta)")
+    badania_dodatkowe = st.checkbox("🩸 Dodaj adnotację o badaniach dodatkowych dla pracowników (-30%)")
+    
+    df = get_supabase_data()
+    if df.empty: st.stop()
+    
+    c1, c2 = st.columns([1, 1])
+    with c1: 
+        wybrane = st.multiselect("Wybierz pakiety badań:", df['nazwa'].tolist())
+    
+    suma_kosztow, suma_cen, suma_rynkowa = 0.0, 0.0, 0.0
+    szczegoly_pakietow_do_oferty = ""
+
+    if wybrane:
+        koszyk_lab = df[df['nazwa'].isin(wybrane)]
+        suma_kosztow = koszyk_lab['koszt'].sum()
+        suma_cen = koszyk_lab['cena'].sum()
+        if 'cena_rynkowa' in koszyk_lab.columns: suma_rynkowa = koszyk_lab['cena_rynkowa'].sum()
+        
+        with c2: 
+            st.markdown("**Wybrane Pakiety:**")
+            for index, row in koszyk_lab.iterrows():
+                sklad = row.get('skladniki', 'Brak szczegółowego opisu.')
+                st.info(f"🧬 **{row['nazwa']}**\n\n*Skład:* {sklad}")
+                szczegoly_pakietow_do_oferty += f"- **{row['nazwa']}**: {sklad}\n"
+                
+        c3, c4 = st.columns(2)
+        if suma_rynkowa > 0: c3.metric("Sugerowana CENA RYNKOWA", f"{suma_rynkowa:.2f} PLN")
+        c4.metric("NASZA CENA", f"{suma_cen:.2f} PLN")
+    
+    st.divider()
+    ile_lok = st.number_input("Ile lokalizacji?", 1, value=1)
+    tabs = st.tabs([f"Lok. {i+1}" for i in range(ile_lok)])
+    
+    total_koszt_ops, total_koszt_lab, total_przychod_lab, total_pacjenci = 0.0, 0.0, 0.0, 0
+    opis_lok = ""
+
+    for i, tab in enumerate(tabs):
+        with tab:
+            st.markdown(f"**Lokalizacja {i+1}**")
+            col_m, col_z = st.columns([2, 1])
+            with col_m:
+                miasto = st.text_input(f"Miejscowość:", placeholder="np. Centrala", key=f"lab_city_{i}")
+                nazwa_lok = miasto if miasto else f"Lok {i+1}"
+            with col_z:
+                n_zesp = st.number_input("Liczba Zespołów", 1, 10, 1, key=f"lz_{i}")
+
+            c1, c2 = st.columns(2)
+            pacjenci = c1.number_input("Uczestnicy (Norma ~100/dzień)", 0, value=0, key=f"lp_{i}")
+            km = c2.number_input("Km od Wawy", 0, value=0, key=f"lkm_{i}")
+            
+            if pacjenci > 0:
+                if vouchery:
+                    k_ops = 0.0
+                    total_koszt_ops += k_ops
+                    total_koszt_lab += (pacjenci * suma_kosztow)
+                    total_przychod_lab += (pacjenci * suma_cen)
+                    total_pacjenci += pacjenci
+                    opis_lok += f"- {nazwa_lok}: {pacjenci} os. (Vouchery)\n"
+                    st.markdown(f'<div class="op-info">🎫 <b>Vouchery</b> – obsługa w placówce. Brak kosztów logistyki.</div>', unsafe_allow_html=True)
+                else:
+                    dni = math.ceil(pacjenci / (100 * n_zesp))
+                    symulacja = symulacja_czasu(pacjenci, 100, 5)
+                    k_ops = ((pacjenci / 12.5) * 80.0) + (km * 2 * STAWKA_KM * n_zesp) + ((dni * KOSZT_NOCLEGU * n_zesp) if (km > 150 or dni > 1) else 0.0)
+                    total_koszt_ops += k_ops
+                    total_koszt_lab += (pacjenci * suma_kosztow)
+                    total_przychod_lab += (pacjenci * suma_cen)
+                    total_pacjenci += pacjenci
+                    opis_lok += f"- {nazwa_lok}: {pacjenci} os. ({n_zesp} zesp. lab)\n"
+                    st.markdown(f'<div class="op-info">⏱️ {n_zesp} Zesp. Lab ➡ <b>{dni} dni</b> pracy.<br>💡 Alternatywy: {symulacja}</div>', unsafe_allow_html=True)
+
+    razem_koszt = total_koszt_ops + total_koszt_lab
+    st.divider()
+    if total_pacjenci > 0:
+        k1, k2, k3 = st.columns(3)
+        k1.metric("1. KOSZT BAZOWY (z lab)", f"{razem_koszt:.2f} PLN")
+        
+        if vouchery: s_pref = total_przychod_lab + (total_pacjenci * 10.0)
+        else: s_pref = total_przychod_lab + (total_koszt_ops * 2.0)
+            
+        k3.metric("3. Pref", f"{s_pref:.2f} PLN")
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            cena = st.number_input("CENA KOŃCOWA (BRUTTO/ZW):", value=s_pref)
+            cena_per_capita = cena / total_pacjenci if total_pacjenci > 0 else 0
+            st.caption(f"Wychodzi: **{cena_per_capita:.2f} PLN** za osobę")
+        with c2: 
+            status, msg, marza = straznik_rentownosci(razem_koszt, 0.0, cena)
+            if status == "error": st.error(msg)
+            else: st.success(msg)
+        
+        if st.button("➕ Dodaj Pakiet Lab do Oferty"):
+            if status!="error": 
+                logistyka = f"**Wybrane Pakiety i ich skład:**\n{szczegoly_pakietow_do_oferty}\n{generuj_logistyke_opis(total_pacjenci, opis_lok)}"
+                if vouchery: logistyka += "\n\n> **Forma realizacji:** Vouchery dla pracowników."
+                if badania_dodatkowe: logistyka += "\n\n> **Badania Dodatkowe:** Możliwość badań 30% taniej."
+                dodaj_do_koszyka(f"Badania Laboratoryjne: {', '.join(wybrane)}", cena, cena_per_capita, suma_rynkowa, logistyka, marza)
+
 # --- POZOSTAŁE USŁUGI STANDARDOWE ---
 elif "Cukrzyca BASIC" in wybor: render_usluga_standard("Cukrzyca BASIC", 640, 1000, 40, 50, max_zespolow=5)
 elif "Cukrzyca PREMIUM" in wybor: render_usluga_standard("Cukrzyca PREMIUM", 640, 1000, 40, 50, koszt_mat_dzien=320, max_zespolow=5)
