@@ -777,6 +777,36 @@ elif "USG w Firmie" in wybor:
     if wybrane_usg: render_usluga_standard("USG w Firmie", 5000, 5500, 0, 30, koszt_mat_dzien=200, max_zespolow=2, wybrane_opcje=wybrane_usg)
     else: st.warning("Musisz wybrać przynajmniej jeden rodzaj badania USG, aby kontynuować wycenę.")
 
+# --- WEBINARY I EDUKACJA ---
+elif "Webinary i edukacja" in wybor:
+    st.header("💻 Webinary Edukacyjne i Szkolenia")
+    st.info("Dodaj do oferty profesjonalne szkolenia online prowadzone przez naszych ekspertów. Brak kosztów logistyki!")
+
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        temat_webinaru = st.selectbox("Wybierz temat prelekcji:", WEBINARY_TEMATY + ["Inny (wpisz poniżej)"])
+        if temat_webinaru == "Inny (wpisz poniżej)":
+            temat_webinaru = st.text_input("Wpisz niestandardowy temat szkolenia:")
+    with col2:
+        liczba_spotkan = st.number_input("Liczba spotkań / godzin:", min_value=1, value=1)
+        
+    cena_za_webinar = st.number_input("Cena za 1 spotkanie (PLN Brutto):", min_value=0.0, value=2500.0, step=100.0)
+
+    total_cena = liczba_spotkan * cena_za_webinar
+
+    st.divider()
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Koszty Logistyki", "0.00 PLN")
+    k2.metric("Sugerowana Cena", f"{liczba_spotkan * 2500:.2f} PLN")
+    k3.metric("Twoja Cena Końcowa", f"{total_cena:.2f} PLN")
+
+    if st.button("➕ Dodaj Webinary do Oferty", use_container_width=True):
+        if temat_webinaru:
+            logistyka = f"Forma: Online (Zdalnie)\nTemat: {temat_webinaru}\nLiczba zaplanowanych spotkań: {liczba_spotkan}"
+            dodaj_do_koszyka(f"Webinar Edukacyjny: {temat_webinaru}", total_cena, 0.0, 0.0, logistyka, 100.0)
+        else:
+            st.error("Wpisz temat webinaru, aby kontynuować.")
+
 # --- POZOSTAŁE USŁUGI STANDARDOWE ---
 elif "Zarządzanie stresem" in wybor:
     st.info("Logika zaimplementowana w głównym bloku kalkulatorów, tutaj wersja uproszczona. Użyj opcji Dopasowanie do Budżetu lub wpisz ręcznie.")
