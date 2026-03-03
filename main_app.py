@@ -60,8 +60,17 @@ st.markdown("""
 
 # --- BAZA WIEDZY: HANDLOWCY (Z TELEFONAMI) ---
 DANE_HANDLOWCOW = {
-    "jan@twojafirma.pl": {"imie": "Jan Kowalski", "stanowisko": "Senior Account Manager", "telefon": "+48 500 600 700"},
-    "szef@twojafirma.pl": {"imie": "Piotr Szef", "stanowisko": "Dyrektor ds. Kluczowych Klientów", "telefon": "+48 111 222 333"},
+    "jakub.jaruga@longlife.pl": {"imie": "Jakub Jaruga", "stanowisko": "Dyrektor Sprzedaży", "telefon": "+48 570 585 484"},
+    "paulina.nytko@longlife.pl": {"imie": "Paulina Nytko", "stanowisko": "Health & Wellbeing Business Partner", "telefon": "+48 530 232 220"},
+    "katarzyna.brzostek@longlife.pl": {"imie": "Katarzyna Brzostek", "stanowisko": "Health & Wellbeing Business Partner", "telefon": "+48 535 678 736"},
+    "katarzyna.czarnowska@longlife.pl": {"imie": "Katarzyna Czarnowska", "stanowisko": "Członek Zarządu. Dyrektor Operacyjny", "telefon": "+48 883 112 004"},
+    "katarzyna.pawlowska@longlife.pl": {"imie": "Katarzyna Pawłowska", "stanowsiko": "Customer Care", "telefon": "+48 533 100 317"},
+    "aleksandra.leszczynska@longlife.pl": {"imie": "Aleksandra Leszczyńska", "stanowisko": "Koordynator ds. Realizacji Akcji", "telefon": "+48 535 743 026"},
+    "piotr.leszczynski@longlife.pl": {"imie": "Piotr Leszczyński", "stanowisko": "Członek Zarządu. Dyrektor Medyczny", "telefon": "+48 535 958 322"},
+    "filip.clapka@longlife.pl": {"imie": "Filip Cłapka", "stanowisko": "--", "telefon": "--"},
+    "olga.skowronska@longlife.pl": {"imie": "Olga Skowrońska", "stanowisko": "--", "telefon": "--"},
+    "paulina.werczynska@longlife.pl": {"imie": "Paulina Werczyńska", "stanowisko": "Członek Zarządu.Dyrektor Marketingu", "telefon": "--"},
+    "lukasz.jezewski@longlife.pl": {"imie": "Łukasz Jeżewski", "stanowisko": "Koordynator ds. Zespołów Medycznych", "telefon": "+48 883 112 000"},
 }
 
 LIMIT_DZIENNY = {
